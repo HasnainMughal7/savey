@@ -172,66 +172,6 @@ export default function SettingsScreen() {
           </View>
         </View>
 
-        <View style={styles.securityCard}>
-          <View style={styles.securityHeader}>
-            <View style={styles.passkeyIcon}>
-              <Ionicons name="key-outline" size={22} color={colors.accent} />
-            </View>
-            <View style={styles.securityCopy}>
-              <Text style={styles.securityTitle}>Passkeys</Text>
-              <Text style={styles.securityDescription}>
-                Sign in with Face ID, Touch ID, or your device screen lock—without a password.
-              </Text>
-            </View>
-          </View>
-
-          <View style={styles.detailRow}>
-            <Text style={styles.detailLabel}>Saved passkeys</Text>
-            <Text style={styles.detailValue}>{user.passkeys.length}</Text>
-          </View>
-
-          {user.passkeys.map((passkey) => (
-            <View key={passkey.id} style={styles.passkeyRow}>
-              <View style={styles.passkeyCopy}>
-                <Text numberOfLines={1} style={styles.passkeyName}>
-                  {passkey.name || 'Savey passkey'}
-                </Text>
-                <Text style={styles.passkeyDate}>
-                  Added {passkey.createdAt.toLocaleDateString()}
-                </Text>
-              </View>
-              <Pressable
-                accessibilityRole="button"
-                accessibilityLabel={`Remove ${passkey.name || 'passkey'}`}
-                disabled={isRunning}
-                hitSlop={10}
-                onPress={() => confirmRemovePasskey(passkey.id, passkey.name)}
-                style={({ pressed }) => [
-                  styles.removePasskey,
-                  pressed ? styles.buttonPressed : undefined,
-                ]}
-              >
-                <Ionicons name="trash-outline" size={18} color={colors.destructive} />
-                <Text style={styles.removePasskeyText}>Remove</Text>
-              </Pressable>
-            </View>
-          ))}
-
-          {passkeySupported ? (
-            <AuthButton
-              label={user.passkeys.length > 0 ? 'Add another passkey' : 'Create a passkey'}
-              loading={isRunning}
-              onPress={handleCreatePasskey}
-              variant="secondary"
-            />
-          ) : (
-            <AuthNotice
-              message="Passkeys are unavailable in this runtime. Install a fresh native development build; Expo Go cannot use them."
-              tone="info"
-            />
-          )}
-        </View>
-
         <AuthNotice message={error} />
         <AuthNotice message={notice} tone="success" />
         {userOwnsCredentials ? (
