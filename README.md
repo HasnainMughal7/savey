@@ -1,50 +1,81 @@
-# Welcome to your Expo app 👋
+# Savey
 
-This is an [Expo](https://expo.dev) project created with [`create-expo-app`](https://www.npmjs.com/package/create-expo-app).
+Savey is an Expo 54 subscription-management app with a custom, cross-platform Clerk authentication experience. The auth UI follows Savey's cream, navy, and coral design system and renders consistently on iOS, Android, and web.
 
-## Get started
+## Authentication included
 
-1. Install dependencies
+- Email/password sign up with local and Clerk validation
+- Email verification with resend cooldown and safe retry handling
+- Required Clerk profile fields, legal consent, and optional phone verification
+- Idempotent handling for already-verified codes
+- Explicit Clerk session finalization and protected Expo Router groups
+- Email/password sign in with email, phone, TOTP, and backup-code MFA
+- Email-code password recovery that signs out other sessions
+- Encrypted native token persistence through `expo-secure-store`
+- Real Clerk user identity on Home and Settings, plus sign out
+- Web CAPTCHA mount point for Clerk bot protection
+- Visible configuration and session-task screens instead of blank states
+
+## Local setup
+
+1. Use a current Node 20 release and install dependencies:
 
    ```bash
-   npm install
+   npm ci
    ```
 
-2. Start the app
+2. Copy the environment template:
 
    ```bash
-   npx expo start
+   cp .env.example .env
    ```
 
-In the output, you'll find options to open the app in a
+3. In Clerk Dashboard, copy the publishable key from **API keys** into `.env`:
 
-- [development build](https://docs.expo.dev/develop/development-builds/introduction/)
-- [Android emulator](https://docs.expo.dev/workflow/android-studio-emulator/)
-- [iOS simulator](https://docs.expo.dev/workflow/ios-simulator/)
-- [Expo Go](https://expo.dev/go), a limited sandbox for trying out app development with Expo
+   ```dotenv
+   EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY=pk_test_...
+   ```
 
-You can start developing by editing the files inside the **app** directory. This project uses [file-based routing](https://docs.expo.dev/router/introduction).
+4. In Clerk Dashboard, enable:
 
-## Get a fresh project
+   - Native API
+   - Email address as an identifier
+   - Password authentication
+   - Email verification code for sign up
 
-When you're ready, run:
+   The custom flow also adapts when first name, last name, username, legal acceptance, phone verification, or MFA are required.
+
+5. Restart Expo after changing environment variables:
+
+   ```bash
+   npx expo start --clear
+   ```
+
+The `.env` file is intentionally ignored. Never commit environment-specific keys; use `.env.example` as the shared template.
+
+## Run
 
 ```bash
-npm run reset-project
+npm run ios
+npm run android
+npm run web
 ```
 
-This command will move the starter code to the **app-example** directory and create a blank **app** directory where you can start developing.
+The native identifiers are configured as `com.hasnainmughal.savey`. For a production app, create matching iOS and Android applications in Clerk Dashboard when enabling native SSO methods.
 
-## Learn more
+## Verify changes
 
-To learn more about developing your project with Expo, look at the following resources:
+```bash
+npm run check
+npx expo-doctor
+npx expo export --platform web
+```
 
-- [Expo documentation](https://docs.expo.dev/): Learn fundamentals, or go into advanced topics with our [guides](https://docs.expo.dev/guides).
-- [Learn Expo tutorial](https://docs.expo.dev/tutorial/introduction/): Follow a step-by-step tutorial where you'll create a project that runs on Android, iOS, and the web.
+## Important auth routes
 
-## Join the community
+- `/(auth)/sign-in`
+- `/(auth)/sign-up`
+- `/(auth)/forgot-password`
+- `/session-task`
 
-Join our community of developers creating universal apps.
-
-- [Expo on GitHub](https://github.com/expo/expo): View our open source platform and contribute.
-- [Discord community](https://chat.expo.dev): Chat with Expo users and ask questions.
+Expo Router protected routes ensure signed-out users stay in auth, signed-in users enter the tabs, and pending Clerk session tasks cannot be bypassed.
