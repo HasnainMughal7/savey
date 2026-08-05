@@ -1,6 +1,5 @@
 import { useClerk, useSession } from '@clerk/expo';
 import { Ionicons } from '@expo/vector-icons';
-import { router } from 'expo-router';
 import { useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -19,7 +18,6 @@ export default function SessionTaskScreen() {
 
   const handleSignOut = async () => {
     await signOut();
-    router.replace('/');
   };
 
   const handleCheckAgain = () =>
@@ -27,7 +25,6 @@ export default function SessionTaskScreen() {
       setError(undefined);
       try {
         await client.reload();
-        router.replace('/');
       } catch (reloadError) {
         setError(getErrorMessage(reloadError, 'We could not refresh the security status.'));
       }
