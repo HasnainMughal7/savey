@@ -21,6 +21,7 @@ import { useFinalizeAuth } from '@/hooks/useFinalizeAuth';
 import { type SocialAuthStrategy, useSocialAuth } from '@/hooks/useSocialAuth';
 import {
   type SignInFieldErrors,
+  getErrorCode,
   getErrorMessage,
   hasFieldErrors,
   isAlreadyVerifiedError,
@@ -29,6 +30,7 @@ import {
   validateVerificationCode,
 } from '@/lib/auth';
 import { navigateAfterAuth } from '@/lib/authNavigation';
+import { isPasskeySupported } from '@/lib/passkeySupport';
 
 type MfaStrategy = 'email_code' | 'phone_code' | 'totp' | 'backup_code';
 
@@ -48,7 +50,8 @@ const isSupportedMfaStrategy = (strategy: string): strategy is MfaStrategy =>
 export default function SignInScreen() {
   const { signIn, errors: clerkErrors, fetchStatus } = useSignIn();
   const { setActive } = useClerk();
-  const { authenticate, biometricType, hasCredentials, setCredentials } = useLocalCredentials();
+  const { authenticate, biometricType, clearCredentials, hasCredentials, setCredentials } =
+    useLocalCredentials();
   const { isRunning, run } = useAsyncAction();
   const startSocialAuth = useSocialAuth();
   const resend = useCooldown(30);
@@ -66,6 +69,7 @@ export default function SignInScreen() {
   const [codeError, setCodeError] = useState<string>();
   const [formError, setFormError] = useState<string>();
   const [notice, setNotice] = useState<string>();
+  const passkeySupported = isPasskeySupported();
 
   useEffect(() => {
     if (signIn.identifier && !emailEditedRef.current) setEmail(signIn.identifier);
@@ -96,9 +100,15 @@ export default function SignInScreen() {
     try {
       await setCredentials(credentials);
     } catch {
-      // A device credential failure must not block a valid Clerk sign-in.
+      // setCredentials writes the identifier before the protected password. If the second write
+      // fails, remove the partial record so the next launch cannot offer a broken Face ID button.
+      try {
+        await clearCredentials();
+      } catch {
+        // A device credential failure must not block a valid Clerk sign-in.
+      }
     }
-  }, [biometricType, setCredentials]);
+  }, [biometricType, clearCredentials, setCredentials]);
   const finalize = useFinalizeAuth(
     signIn,
     navigateAfterAuth,
@@ -130,7 +140,7 @@ export default function SignInScreen() {
         const attempt = await authenticate();
 
         if (attempt.status === 'complete' && attempt.createdSessionId) {
-          await setActive({ session: attempt.createdSessionId, navigate: navigateAfterAuth });
+          await setActive({ session: attempt.createdSessionId });
           return;
         }
 
@@ -141,7 +151,37 @@ export default function SignInScreen() {
           setFormError('Biometric sign-in needs your email and password again.');
         }
       } catch (error) {
+        const errorMessage = getErrorMessage(error, '');
+        if (/cannot retrieve a password|could not retrieve.+password/i.test(errorMessage)) {
+          try {
+            await clearCredentials();
+          } catch {
+            // The actionable message below is still more useful than exposing Clerk internals.
+          }
+          setNotice(
+            `${biometricType === 'face-recognition' ? 'Face ID' : 'Biometric sign-in'} needs to be set up again. Sign in with your password once to reconnect it.`,
+          );
+          return;
+        }
         setFormError(getErrorMessage(error, 'Biometric sign-in could not be completed.'));
+      }
+    });
+
+  const handlePasskeySignIn = () =>
+    run(async () => {
+      clearMessages();
+      try {
+        const { error } = await signIn.passkey({ flow: 'discoverable' });
+        if (error) throw error;
+      } catch (error) {
+        const code = getErrorCode(error);
+        const message =
+          code === 'passkey_registration_cancelled' || code === 'passkey_operation_aborted'
+            ? 'Passkey sign-in was cancelled.'
+            : code === 'passkey_invalid_rpID_or_domain'
+              ? 'This build is not connected to the Clerk passkey domain yet.'
+              : getErrorMessage(error, 'Passkey sign-in could not be completed.');
+        setFormError(message);
       }
     });
 
@@ -273,6 +313,15 @@ export default function SignInScreen() {
         onPress={() => handleSocialAuth('oauth_apple')}
         variant="secondary"
       />
+      {passkeySupported ? (
+        <AuthButton
+          disabled={busy}
+          icon="key-outline"
+          label="Sign in with a passkey"
+          onPress={handlePasskeySignIn}
+          variant="secondary"
+        />
+      ) : null}
       {hasCredentials && biometricType ? (
         <AuthButton
           disabled={busy}
@@ -325,6 +374,7 @@ export default function SignInScreen() {
         onPress={() => router.push('/(auth)/forgot-password')}
       />
       <AuthNotice message={formError} />
+      <AuthNotice message={notice} tone="info" />
       {signIn.status === 'needs_new_password' ? (
         <AuthNotice
           message="This account needs a new password. Use the recovery flow below."

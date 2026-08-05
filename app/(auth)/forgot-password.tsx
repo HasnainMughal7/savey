@@ -31,7 +31,7 @@ type RecoveryStep = 'email' | 'code' | 'new-password' | 'finalizing';
 
 export default function ForgotPasswordScreen() {
   const { signIn, errors: clerkErrors, fetchStatus } = useSignIn();
-  const { biometricType, setCredentials } = useLocalCredentials();
+  const { biometricType, clearCredentials, setCredentials } = useLocalCredentials();
   const { isRunning, run } = useAsyncAction();
   const resend = useCooldown(30);
   const emailEditedRef = useRef(false);
@@ -155,7 +155,11 @@ export default function ForgotPasswordScreen() {
           try {
             await setCredentials({ identifier: normalizeEmail(email), password });
           } catch {
-            // Updating local biometrics must not invalidate a successful password reset.
+            try {
+              await clearCredentials();
+            } catch {
+              // Updating local biometrics must not invalidate a successful password reset.
+            }
           }
         }
 

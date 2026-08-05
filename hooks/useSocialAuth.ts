@@ -21,7 +21,8 @@ export function useSocialAuth() {
         result.signIn?.existingSession ||
         result.signUp?.existingSession
       ) {
-        router.replace('/');
+        // startSSOFlow finalizes/activates completed sessions. Protected route guards move the
+        // user into the signed-in tree without dispatching across nested navigators.
         return;
       }
 

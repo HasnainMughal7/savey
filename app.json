@@ -10,7 +10,11 @@
     "newArchEnabled": true,
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.hasnainmughal.savey"
+      "bundleIdentifier": "com.hasnainmughal.savey",
+      "associatedDomains": [
+        "applinks:model-locust-75.clerk.accounts.dev",
+        "webcredentials:model-locust-75.clerk.accounts.dev"
+      ]
     },
     "android": {
       "package": "com.hasnainmughal.savey",
@@ -21,7 +25,23 @@
         "monochromeImage": "./assets/images/android-icon-monochrome.png"
       },
       "edgeToEdgeEnabled": true,
-      "predictiveBackGestureEnabled": false
+      "predictiveBackGestureEnabled": false,
+      "intentFilters": [
+        {
+          "action": "VIEW",
+          "autoVerify": true,
+          "data": [
+            {
+              "scheme": "https",
+              "host": "model-locust-75.clerk.accounts.dev"
+            }
+          ],
+          "category": [
+            "BROWSABLE",
+            "DEFAULT"
+          ]
+        }
+      ]
     },
     "web": {
       "output": "static",
@@ -30,6 +50,14 @@
     "plugins": [
       "expo-router",
       "expo-secure-store",
+      [
+        "expo-build-properties",
+        {
+          "ios": {
+            "deploymentTarget": "17.0"
+          }
+        }
+      ],
       [
         "expo-local-authentication",
         {

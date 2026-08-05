@@ -48,7 +48,7 @@ type EditableSignUpField = 'email' | 'firstName' | 'lastName' | 'username' | 'le
 
 export default function SignUpScreen() {
   const { signUp, errors: clerkErrors, fetchStatus } = useSignUp();
-  const { biometricType, setCredentials } = useLocalCredentials();
+  const { biometricType, clearCredentials, setCredentials } = useLocalCredentials();
   const { isRunning, run } = useAsyncAction();
   const startSocialAuth = useSocialAuth();
   const resend = useCooldown(30);
@@ -132,9 +132,13 @@ export default function SignUpScreen() {
     try {
       await setCredentials(credentials);
     } catch {
-      // Biometric setup must never prevent a valid Clerk session from starting.
+      try {
+        await clearCredentials();
+      } catch {
+        // Biometric setup must never prevent a valid Clerk session from starting.
+      }
     }
-  }, [biometricType, setCredentials]);
+  }, [biometricType, clearCredentials, setCredentials]);
   const finalize = useFinalizeAuth(
     signUp,
     navigateAfterAuth,
