@@ -1,5 +1,4 @@
 import { useSignIn } from '@clerk/expo';
-import { useLocalCredentials } from '@clerk/expo/local-credentials';
 import { router } from 'expo-router';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Text } from 'react-native';
@@ -31,7 +30,6 @@ type RecoveryStep = 'email' | 'code' | 'new-password' | 'finalizing';
 
 export default function ForgotPasswordScreen() {
   const { signIn, errors: clerkErrors, fetchStatus } = useSignIn();
-  const { biometricType, clearCredentials, setCredentials } = useLocalCredentials();
   const { isRunning, run } = useAsyncAction();
   const resend = useCooldown(30);
   const emailEditedRef = useRef(false);
@@ -150,18 +148,6 @@ export default function ForgotPasswordScreen() {
           signOutOfOtherSessions: true,
         });
         if (error) throw error;
-
-        if (biometricType) {
-          try {
-            await setCredentials({ identifier: normalizeEmail(email), password });
-          } catch {
-            try {
-              await clearCredentials();
-            } catch {
-              // Updating local biometrics must not invalidate a successful password reset.
-            }
-          }
-        }
 
         if (
           signIn.status === 'needs_second_factor' ||

@@ -1,5 +1,4 @@
 import { useSignUp } from '@clerk/expo';
-import { useLocalCredentials } from '@clerk/expo/local-credentials';
 import type { SignUpField, SignUpFutureUpdateParams } from '@clerk/expo/types';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Text } from 'react-native';
@@ -48,14 +47,10 @@ type EditableSignUpField = 'email' | 'firstName' | 'lastName' | 'username' | 'le
 
 export default function SignUpScreen() {
   const { signUp, errors: clerkErrors, fetchStatus } = useSignUp();
-  const { biometricType, clearCredentials, setCredentials } = useLocalCredentials();
   const { isRunning, run } = useAsyncAction();
   const startSocialAuth = useSocialAuth();
   const resend = useCooldown(30);
   const editedFieldsRef = useRef(new Set<EditableSignUpField>());
-  const pendingCredentialsRef = useRef<{ identifier: string; password: string } | undefined>(
-    undefined,
-  );
 
   const [email, setEmail] = useState(signUp.emailAddress ?? '');
   const [password, setPassword] = useState('');
@@ -124,27 +119,7 @@ export default function SignUpScreen() {
     },
     [],
   );
-  const saveBiometricCredentials = useCallback(async () => {
-    const credentials = pendingCredentialsRef.current;
-    pendingCredentialsRef.current = undefined;
-    if (!credentials || !biometricType) return;
-
-    try {
-      await setCredentials(credentials);
-    } catch {
-      try {
-        await clearCredentials();
-      } catch {
-        // Biometric setup must never prevent a valid Clerk session from starting.
-      }
-    }
-  }, [biometricType, clearCredentials, setCredentials]);
-  const finalize = useFinalizeAuth(
-    signUp,
-    navigateAfterAuth,
-    handleFinalizeError,
-    saveBiometricCredentials,
-  );
+  const finalize = useFinalizeAuth(signUp, navigateAfterAuth, handleFinalizeError);
   const isFinalizing = finalize.isFinalizing;
   const busy = isRunning || fetchStatus === 'fetching' || isFinalizing;
 
@@ -181,10 +156,6 @@ export default function SignUpScreen() {
           password,
         });
         if (error) throw error;
-        pendingCredentialsRef.current = {
-          identifier: normalizeEmail(email),
-          password,
-        };
 
         const result = await signUp.verifications.sendEmailCode();
         if (result.error && !isAlreadyVerifiedError(result.error)) throw result.error;
@@ -285,7 +256,6 @@ export default function SignUpScreen() {
       setProfileErrors({});
       setCodeError(undefined);
       editedFieldsRef.current.clear();
-      pendingCredentialsRef.current = undefined;
       resend.reset();
     });
 
