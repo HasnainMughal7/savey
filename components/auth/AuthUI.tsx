@@ -40,6 +40,7 @@ type AuthButtonProps = {
   loading?: boolean;
   disabled?: boolean;
   variant?: 'primary' | 'secondary';
+  icon?: IoniconName;
 };
 
 type AuthNoticeProps = {
@@ -147,6 +148,7 @@ export function AuthButton({
   loading = false,
   disabled = false,
   variant = 'primary',
+  icon,
 }: AuthButtonProps) {
   const isDisabled = disabled || loading;
   const isPrimary = variant === 'primary';
@@ -167,9 +169,26 @@ export function AuthButton({
       {loading ? (
         <ActivityIndicator color={isPrimary ? colors.primary : colors.accent} />
       ) : (
-        <Text style={isPrimary ? styles.primaryButtonText : styles.secondaryButtonText}>{label}</Text>
+        <View style={styles.buttonContent}>
+          {icon ? (
+            <Ionicons name={icon} size={20} color={isPrimary ? colors.primary : colors.accent} />
+          ) : null}
+          <Text style={isPrimary ? styles.primaryButtonText : styles.secondaryButtonText}>
+            {label}
+          </Text>
+        </View>
       )}
     </Pressable>
+  );
+}
+
+export function AuthDivider({ label = 'or continue with email' }: { label?: string }) {
+  return (
+    <View accessibilityRole="text" style={styles.dividerRow}>
+      <View style={styles.dividerLine} />
+      <Text style={styles.dividerText}>{label}</Text>
+      <View style={styles.dividerLine} />
+    </View>
   );
 }
 
@@ -493,11 +512,33 @@ const styles = StyleSheet.create({
     fontFamily: 'sans-semibold',
     fontSize: 14,
   },
+  buttonContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: spacing[2],
+  },
   buttonDisabled: {
     opacity: 0.48,
   },
   buttonPressed: {
     opacity: 0.78,
+  },
+  dividerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing[3],
+    paddingVertical: spacing[1],
+  },
+  dividerLine: {
+    flex: 1,
+    height: StyleSheet.hairlineWidth,
+    backgroundColor: colors.border,
+  },
+  dividerText: {
+    color: colors.mutedForeground,
+    fontFamily: 'sans-medium',
+    fontSize: 12,
   },
   notice: {
     flexDirection: 'row',

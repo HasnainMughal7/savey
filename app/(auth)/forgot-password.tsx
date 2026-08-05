@@ -1,6 +1,7 @@
 import { useSignIn } from '@clerk/expo';
+import { useLocalCredentials } from '@clerk/expo/local-credentials';
 import { router } from 'expo-router';
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { Text } from 'react-native';
 
 import {
@@ -30,8 +31,10 @@ type RecoveryStep = 'email' | 'code' | 'new-password' | 'finalizing';
 
 export default function ForgotPasswordScreen() {
   const { signIn, errors: clerkErrors, fetchStatus } = useSignIn();
+  const { biometricType, setCredentials } = useLocalCredentials();
   const { isRunning, run } = useAsyncAction();
   const resend = useCooldown(30);
+  const emailEditedRef = useRef(false);
 
   const [step, setStep] = useState<RecoveryStep>(
     signIn.status === 'needs_new_password' ? 'new-password' : 'email',
@@ -46,6 +49,10 @@ export default function ForgotPasswordScreen() {
   const [confirmPasswordError, setConfirmPasswordError] = useState<string>();
   const [formError, setFormError] = useState<string>();
   const [notice, setNotice] = useState<string>();
+
+  useEffect(() => {
+    if (signIn.identifier && !emailEditedRef.current) setEmail(signIn.identifier);
+  }, [signIn.identifier]);
 
   const handleFinalizeError = useCallback(
     (error: unknown) => {
@@ -143,6 +150,26 @@ export default function ForgotPasswordScreen() {
           signOutOfOtherSessions: true,
         });
         if (error) throw error;
+
+        if (biometricType) {
+          try {
+            await setCredentials({ identifier: normalizeEmail(email), password });
+          } catch {
+            // Updating local biometrics must not invalidate a successful password reset.
+          }
+        }
+
+        if (
+          signIn.status === 'needs_second_factor' ||
+          signIn.status === 'needs_client_trust'
+        ) {
+          router.replace('/(auth)/sign-in');
+          return;
+        }
+
+        if (signIn.status !== 'complete') {
+          setFormError('Your password was updated. Sign in again to finish securing this device.');
+        }
       } catch (error) {
         setFormError(getErrorMessage(error, 'We could not update your password.'));
       }
@@ -163,6 +190,7 @@ export default function ForgotPasswordScreen() {
       setCodeError(undefined);
       setPasswordError(undefined);
       setConfirmPasswordError(undefined);
+      emailEditedRef.current = false;
       resend.reset();
     });
 
@@ -186,6 +214,7 @@ export default function ForgotPasswordScreen() {
         keyboardType="email-address"
         label="Email address"
         onChangeText={(value) => {
+          emailEditedRef.current = true;
           setEmail(value);
           setEmailError(undefined);
         }}

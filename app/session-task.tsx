@@ -1,21 +1,37 @@
 import { useClerk, useSession } from '@clerk/expo';
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
+import { useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { AuthButton } from '@/components/auth/AuthUI';
+import { AuthButton, AuthNotice } from '@/components/auth/AuthUI';
 import { colors, spacing } from '@/constants/theme';
+import { useAsyncAction } from '@/hooks/useAsyncAction';
+import { getErrorMessage } from '@/lib/auth';
 
 export default function SessionTaskScreen() {
   const { session } = useSession();
-  const { signOut } = useClerk();
+  const { client, signOut } = useClerk();
+  const { isRunning, run } = useAsyncAction();
+  const [error, setError] = useState<string>();
   const taskKey = session?.currentTask?.key;
 
   const handleSignOut = async () => {
     await signOut();
     router.replace('/');
   };
+
+  const handleCheckAgain = () =>
+    run(async () => {
+      setError(undefined);
+      try {
+        await client.reload();
+        router.replace('/');
+      } catch (reloadError) {
+        setError(getErrorMessage(reloadError, 'We could not refresh the security status.'));
+      }
+    });
 
   return (
     <SafeAreaView style={styles.safeArea}>
@@ -29,8 +45,9 @@ export default function SessionTaskScreen() {
           Complete it in your Clerk Account Portal, then reopen the app.
         </Text>
         {taskKey ? <Text style={styles.task}>Required task: {taskKey}</Text> : null}
-        <AuthButton label="Check again" onPress={() => router.replace('/')} />
-        <AuthButton label="Sign out" variant="secondary" onPress={handleSignOut} />
+        <AuthNotice message={error} />
+        <AuthButton label="Check again" loading={isRunning} onPress={handleCheckAgain} />
+        <AuthButton disabled={isRunning} label="Sign out" variant="secondary" onPress={handleSignOut} />
       </View>
     </SafeAreaView>
   );

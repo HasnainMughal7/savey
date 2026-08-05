@@ -4,12 +4,14 @@ Savey is an Expo 54 subscription-management app with a custom, cross-platform Cl
 
 ## Authentication included
 
-- Email/password sign up with local and Clerk validation
+- Email/password sign-up with local and Clerk validation
 - Email verification with resend cooldown and safe retry handling
-- Required Clerk profile fields, legal consent, and optional phone verification
+- Google and Apple OAuth for both sign-up and sign-in
+- Face ID, Touch ID, or fingerprint sign-in for returning password users
+- Required Clerk profile fields and legal consent without phone collection
 - Idempotent handling for already-verified codes
 - Explicit Clerk session finalization and protected Expo Router groups
-- Email/password sign in with email, phone, TOTP, and backup-code MFA
+- Email/password sign-in with email, TOTP, and backup-code MFA
 - Email-code password recovery that signs out other sessions
 - Encrypted native token persistence through `expo-secure-store`
 - Real Clerk user identity on Home and Settings, plus sign out
@@ -41,9 +43,14 @@ Savey is an Expo 54 subscription-management app with a custom, cross-platform Cl
    - Native API
    - Email address as an identifier
    - Password authentication
-   - Email verification code for sign up
+   - Email verification code for sign-up
+   - Google and Apple as social connections
 
-   The custom flow also adapts when first name, last name, username, legal acceptance, phone verification, or MFA are required.
+   Keep phone number optional or disabled. Savey intentionally does not collect a phone number
+   during sign-up.
+
+   The custom flow also adapts when first name, last name, username, legal acceptance, or MFA are
+   required.
 
 5. Restart Expo after changing environment variables:
 
@@ -61,7 +68,9 @@ npm run android
 npm run web
 ```
 
-The native identifiers are configured as `com.hasnainmughal.savey`. For a production app, create matching iOS and Android applications in Clerk Dashboard when enabling native SSO methods.
+The native identifiers are configured as `com.hasnainmughal.savey`. Google and Apple use Clerk's
+browser SSO flow and the `savey` URL scheme. Allowlist the production redirect URL in Clerk before
+release. Face ID requires a development build on iOS; Expo Go cannot test Face ID.
 
 ## Verify changes
 

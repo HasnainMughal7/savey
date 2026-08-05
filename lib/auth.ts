@@ -15,7 +15,6 @@ export type ProfileFieldErrors = {
 };
 
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-const E164_PATTERN = /^\+[1-9]\d{7,14}$/;
 
 export const normalizeEmail = (value: string) => value.trim().toLowerCase();
 
@@ -58,16 +57,6 @@ export const validateVerificationCode = (code: string, allowBackupCode = false) 
   if (!allowBackupCode && !/^\d{6}$/.test(normalized)) return 'Enter the 6-digit code.';
   return undefined;
 };
-
-export const validatePhoneNumber = (phoneNumber: string) => {
-  const normalized = phoneNumber.replace(/[\s()-]/g, '');
-  if (!normalized) return 'Phone number is required.';
-  if (!E164_PATTERN.test(normalized)) return 'Use international format, for example +923001234567.';
-  return undefined;
-};
-
-export const normalizePhoneNumber = (phoneNumber: string) =>
-  phoneNumber.replace(/[\s()-]/g, '');
 
 export const hasFieldErrors = (errors: Record<string, string | undefined>) =>
   Object.values(errors).some(Boolean);
