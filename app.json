@@ -30,6 +30,12 @@
     "plugins": [
       "expo-router",
       "expo-secure-store",
+      [
+        "expo-local-authentication",
+        {
+          "faceIDPermission": "Allow Savey to use Face ID for secure sign-in."
+        }
+      ],
       "@clerk/expo",
       [
         "expo-splash-screen",

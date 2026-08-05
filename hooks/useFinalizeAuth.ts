@@ -10,6 +10,7 @@ export function useFinalizeAuth(
   resource: FinalizableAuth,
   navigate: SetActiveNavigate,
   onError: (error: unknown) => void,
+  beforeFinalize?: () => void | Promise<void>,
 ) {
   const finalizingRef = useRef(false);
   const [attempt, setAttempt] = useState(0);
@@ -26,8 +27,9 @@ export function useFinalizeAuth(
     if (hasFailed || finalizingRef.current) return;
     finalizingRef.current = true;
 
-    void resource
-      .finalize({ navigate })
+    void Promise.resolve()
+      .then(() => beforeFinalize?.())
+      .then(() => resource.finalize({ navigate }))
       .then(({ error }) => {
         if (error) {
           finalizingRef.current = false;
@@ -40,7 +42,7 @@ export function useFinalizeAuth(
         setHasFailed(true);
         onError(error);
       });
-  }, [attempt, hasFailed, isComplete, navigate, onError, resource]);
+  }, [attempt, beforeFinalize, hasFailed, isComplete, navigate, onError, resource]);
 
   const retry = useCallback(() => {
     finalizingRef.current = false;

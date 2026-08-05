@@ -1,10 +1,12 @@
-import { useSignIn } from '@clerk/expo';
+import { useClerk, useSignIn } from '@clerk/expo';
+import { useLocalCredentials } from '@clerk/expo/local-credentials';
 import type { SignInSecondFactor } from '@clerk/expo/types';
 import { router } from 'expo-router';
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import {
   AuthButton,
+  AuthDivider,
   AuthField,
   AuthForm,
   AuthNotice,
@@ -16,6 +18,7 @@ import {
 import { useAsyncAction } from '@/hooks/useAsyncAction';
 import { useCooldown } from '@/hooks/useCooldown';
 import { useFinalizeAuth } from '@/hooks/useFinalizeAuth';
+import { type SocialAuthStrategy, useSocialAuth } from '@/hooks/useSocialAuth';
 import {
   type SignInFieldErrors,
   getErrorMessage,
@@ -44,8 +47,15 @@ const isSupportedMfaStrategy = (strategy: string): strategy is MfaStrategy =>
 
 export default function SignInScreen() {
   const { signIn, errors: clerkErrors, fetchStatus } = useSignIn();
+  const { setActive } = useClerk();
+  const { authenticate, biometricType, hasCredentials, setCredentials } = useLocalCredentials();
   const { isRunning, run } = useAsyncAction();
+  const startSocialAuth = useSocialAuth();
   const resend = useCooldown(30);
+  const emailEditedRef = useRef(false);
+  const pendingCredentialsRef = useRef<{ identifier: string; password: string } | undefined>(
+    undefined,
+  );
 
   const [email, setEmail] = useState(signIn.identifier ?? '');
   const [password, setPassword] = useState('');
@@ -56,6 +66,10 @@ export default function SignInScreen() {
   const [codeError, setCodeError] = useState<string>();
   const [formError, setFormError] = useState<string>();
   const [notice, setNotice] = useState<string>();
+
+  useEffect(() => {
+    if (signIn.identifier && !emailEditedRef.current) setEmail(signIn.identifier);
+  }, [signIn.identifier]);
 
   const needsMfa =
     signIn.status === 'needs_second_factor' || signIn.status === 'needs_client_trust';
@@ -74,7 +88,23 @@ export default function SignInScreen() {
     },
     [],
   );
-  const finalize = useFinalizeAuth(signIn, navigateAfterAuth, handleFinalizeError);
+  const saveBiometricCredentials = useCallback(async () => {
+    const credentials = pendingCredentialsRef.current;
+    pendingCredentialsRef.current = undefined;
+    if (!credentials || !biometricType) return;
+
+    try {
+      await setCredentials(credentials);
+    } catch {
+      // A device credential failure must not block a valid Clerk sign-in.
+    }
+  }, [biometricType, setCredentials]);
+  const finalize = useFinalizeAuth(
+    signIn,
+    navigateAfterAuth,
+    handleFinalizeError,
+    saveBiometricCredentials,
+  );
   const isFinalizing = finalize.isFinalizing;
   const busy = isRunning || fetchStatus === 'fetching' || isFinalizing;
 
@@ -82,6 +112,38 @@ export default function SignInScreen() {
     setFormError(undefined);
     setNotice(undefined);
   };
+
+  const handleSocialAuth = (strategy: SocialAuthStrategy) =>
+    run(async () => {
+      clearMessages();
+      try {
+        await startSocialAuth(strategy);
+      } catch (error) {
+        setFormError(getErrorMessage(error, 'We could not continue with that provider.'));
+      }
+    });
+
+  const handleBiometricSignIn = () =>
+    run(async () => {
+      clearMessages();
+      try {
+        const attempt = await authenticate();
+
+        if (attempt.status === 'complete' && attempt.createdSessionId) {
+          await setActive({ session: attempt.createdSessionId, navigate: navigateAfterAuth });
+          return;
+        }
+
+        if (
+          attempt.status !== 'needs_second_factor' &&
+          attempt.status !== 'needs_client_trust'
+        ) {
+          setFormError('Biometric sign-in needs your email and password again.');
+        }
+      } catch (error) {
+        setFormError(getErrorMessage(error, 'Biometric sign-in could not be completed.'));
+      }
+    });
 
   const handleSignIn = () =>
     run(async () => {
@@ -96,6 +158,10 @@ export default function SignInScreen() {
           password,
         });
         if (error) throw error;
+        pendingCredentialsRef.current = {
+          identifier: normalizeEmail(email),
+          password,
+        };
       } catch (error) {
         setFormError(getErrorMessage(error, 'We could not sign you in. Check your details.'));
       }
@@ -186,11 +252,41 @@ export default function SignInScreen() {
       setMfaDestination(undefined);
       setFieldErrors({});
       setCodeError(undefined);
+      emailEditedRef.current = false;
+      pendingCredentialsRef.current = undefined;
       resend.reset();
     });
 
   const renderCredentials = () => (
     <AuthForm>
+      <AuthButton
+        disabled={busy}
+        icon="logo-google"
+        label="Continue with Google"
+        onPress={() => handleSocialAuth('oauth_google')}
+        variant="secondary"
+      />
+      <AuthButton
+        disabled={busy}
+        icon="logo-apple"
+        label="Continue with Apple"
+        onPress={() => handleSocialAuth('oauth_apple')}
+        variant="secondary"
+      />
+      {hasCredentials && biometricType ? (
+        <AuthButton
+          disabled={busy}
+          icon={biometricType === 'face-recognition' ? 'scan-outline' : 'finger-print-outline'}
+          label={
+            biometricType === 'face-recognition'
+              ? 'Sign in with Face ID'
+              : 'Sign in with fingerprint'
+          }
+          onPress={handleBiometricSignIn}
+          variant="secondary"
+        />
+      ) : null}
+      <AuthDivider />
       <AuthField
         autoCapitalize="none"
         autoComplete="email"
@@ -200,6 +296,7 @@ export default function SignInScreen() {
         keyboardType="email-address"
         label="Email address"
         onChangeText={(value) => {
+          emailEditedRef.current = true;
           setEmail(value);
           setFieldErrors((current) => ({ ...current, email: undefined }));
         }}

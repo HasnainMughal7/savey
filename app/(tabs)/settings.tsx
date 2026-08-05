@@ -3,6 +3,7 @@ import { colors, spacing } from '@/constants/theme';
 import { useAsyncAction } from '@/hooks/useAsyncAction';
 import { getErrorMessage } from '@/lib/auth';
 import { useClerk, useUser } from '@clerk/expo';
+import { useLocalCredentials } from '@clerk/expo/local-credentials';
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import { useState } from 'react';
@@ -12,6 +13,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 export default function SettingsScreen() {
   const { isLoaded, user } = useUser();
   const { signOut } = useClerk();
+  const { clearCredentials, userOwnsCredentials } = useLocalCredentials();
   const { isRunning, run } = useAsyncAction();
   const [error, setError] = useState<string>();
 
@@ -25,6 +27,7 @@ export default function SettingsScreen() {
 
   const displayName = user.fullName || user.username || 'Savey member';
   const email = user.primaryEmailAddress?.emailAddress ?? 'No primary email';
+  const isEmailVerified = user.primaryEmailAddress?.verification.status === 'verified';
 
   const handleSignOut = () =>
     run(async () => {
@@ -34,6 +37,18 @@ export default function SettingsScreen() {
         router.replace('/');
       } catch (signOutError) {
         setError(getErrorMessage(signOutError, 'We could not sign you out. Please try again.'));
+      }
+    });
+
+  const handleRemoveBiometrics = () =>
+    run(async () => {
+      setError(undefined);
+      try {
+        await clearCredentials();
+      } catch (credentialError) {
+        setError(
+          getErrorMessage(credentialError, 'We could not remove biometric sign-in right now.'),
+        );
       }
     });
 
@@ -56,9 +71,11 @@ export default function SettingsScreen() {
               {email}
             </Text>
           </View>
-          <View style={styles.verifiedBadge}>
-            <Ionicons name="shield-checkmark" size={16} color={colors.success} />
-          </View>
+          {isEmailVerified ? (
+            <View style={styles.verifiedBadge}>
+              <Ionicons name="shield-checkmark" size={16} color={colors.success} />
+            </View>
+          ) : null}
         </View>
 
         <View style={styles.securityCard}>
@@ -83,15 +100,21 @@ export default function SettingsScreen() {
           <View style={styles.divider} />
           <View style={styles.detailRow}>
             <Text style={styles.detailLabel}>Email status</Text>
-            <Text style={[styles.detailValue, styles.verifiedText]}>
-              {user.primaryEmailAddress?.verification.status === 'verified'
-                ? 'Verified'
-                : 'Needs verification'}
+            <Text style={[styles.detailValue, isEmailVerified ? styles.verifiedText : undefined]}>
+              {isEmailVerified ? 'Verified' : 'Needs verification'}
             </Text>
           </View>
         </View>
 
         <AuthNotice message={error} />
+        {userOwnsCredentials ? (
+          <AuthButton
+            label="Remove biometric sign-in"
+            loading={isRunning}
+            onPress={handleRemoveBiometrics}
+            variant="secondary"
+          />
+        ) : null}
         <AuthButton label="Sign out of Savey" loading={isRunning} onPress={handleSignOut} />
       </ScrollView>
     </SafeAreaView>
