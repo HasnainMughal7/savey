@@ -10,11 +10,7 @@
     "newArchEnabled": true,
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.hasnainmughal.savey",
-      "associatedDomains": [
-        "applinks:model-locust-75.clerk.accounts.dev",
-        "webcredentials:model-locust-75.clerk.accounts.dev"
-      ]
+      "bundleIdentifier": "com.hasnainmughal.savey"
     },
     "android": {
       "package": "com.hasnainmughal.savey",
@@ -25,23 +21,7 @@
         "monochromeImage": "./assets/images/android-icon-monochrome.png"
       },
       "edgeToEdgeEnabled": true,
-      "predictiveBackGestureEnabled": false,
-      "intentFilters": [
-        {
-          "action": "VIEW",
-          "autoVerify": true,
-          "data": [
-            {
-              "scheme": "https",
-              "host": "model-locust-75.clerk.accounts.dev"
-            }
-          ],
-          "category": [
-            "BROWSABLE",
-            "DEFAULT"
-          ]
-        }
-      ]
+      "predictiveBackGestureEnabled": false
     },
     "web": {
       "output": "static",
@@ -50,20 +30,6 @@
     "plugins": [
       "expo-router",
       "expo-secure-store",
-      [
-        "expo-build-properties",
-        {
-          "ios": {
-            "deploymentTarget": "17.0"
-          }
-        }
-      ],
-      [
-        "expo-local-authentication",
-        {
-          "faceIDPermission": "Allow Savey to use Face ID for secure sign-in."
-        }
-      ],
       "@clerk/expo",
       [
         "expo-splash-screen",

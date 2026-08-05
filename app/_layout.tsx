@@ -1,7 +1,6 @@
 import '@/global.css';
 
 import { colors } from '@/constants/theme';
-import { nativePasskeys } from '@/lib/passkeySupport';
 import { ClerkProvider, useAuth, useSession } from '@clerk/expo';
 import { tokenCache } from '@clerk/expo/token-cache';
 import { useFonts } from 'expo-font';
@@ -86,11 +85,7 @@ export default function RootLayout() {
   if (!publishableKey) return <MissingClerkKey />;
 
   return (
-    <ClerkProvider
-      publishableKey={publishableKey}
-      tokenCache={tokenCache}
-      __experimental_passkeys={nativePasskeys}
-    >
+    <ClerkProvider publishableKey={publishableKey} tokenCache={tokenCache}>
       <AppNavigator />
     </ClerkProvider>
   );

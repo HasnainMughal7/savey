@@ -2,16 +2,12 @@ import { AuthButton, AuthNotice } from '@/components/auth/AuthUI';
 import { colors, spacing } from '@/constants/theme';
 import { useAsyncAction } from '@/hooks/useAsyncAction';
 import { getErrorMessage } from '@/lib/auth';
-import { isPasskeySupported } from '@/lib/passkeySupport';
 import { useClerk, useUser } from '@clerk/expo';
-import { useLocalCredentials } from '@clerk/expo/local-credentials';
 import { Ionicons } from '@expo/vector-icons';
 import { useState } from 'react';
 import {
   ActivityIndicator,
-  Alert,
   Image,
-  Pressable,
   ScrollView,
   StyleSheet,
   Text,
@@ -22,11 +18,8 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 export default function SettingsScreen() {
   const { isLoaded, user } = useUser();
   const { signOut } = useClerk();
-  const { clearCredentials, userOwnsCredentials } = useLocalCredentials();
   const { isRunning, run } = useAsyncAction();
   const [error, setError] = useState<string>();
-  const [notice, setNotice] = useState<string>();
-  const passkeySupported = isPasskeySupported();
 
   if (!isLoaded || !user) {
     return (
@@ -45,78 +38,12 @@ export default function SettingsScreen() {
   const handleSignOut = () =>
     run(async () => {
       setError(undefined);
-      setNotice(undefined);
       try {
         await signOut();
       } catch (signOutError) {
         setError(getErrorMessage(signOutError, 'We could not sign you out. Please try again.'));
       }
     });
-
-  const handleRemoveBiometrics = () =>
-    run(async () => {
-      setError(undefined);
-      setNotice(undefined);
-      try {
-        await clearCredentials();
-        setNotice('Biometric sign-in has been removed from this device.');
-      } catch (credentialError) {
-        setError(
-          getErrorMessage(credentialError, 'We could not remove biometric sign-in right now.'),
-        );
-      }
-    });
-
-  const handleCreatePasskey = () =>
-    run(async () => {
-      setError(undefined);
-      setNotice(undefined);
-      if (!passkeySupported) {
-        setError('Passkeys need a supported browser or a native Savey development build.');
-        return;
-      }
-
-      try {
-        await user.createPasskey();
-        await user.reload();
-        setNotice('Your passkey is ready. You can use it from the Savey sign-in screen.');
-      } catch (passkeyError) {
-        setError(getErrorMessage(passkeyError, 'We could not create a passkey on this device.'));
-      }
-    });
-
-  const handleRemovePasskey = (passkeyId: string) =>
-    run(async () => {
-      setError(undefined);
-      setNotice(undefined);
-      const passkey = user.passkeys.find(({ id }) => id === passkeyId);
-      if (!passkey) return;
-
-      try {
-        await passkey.delete();
-        await user.reload();
-        setNotice('The passkey was removed from your Savey account.');
-      } catch (passkeyError) {
-        setError(getErrorMessage(passkeyError, 'We could not remove that passkey.'));
-      }
-    });
-
-  const confirmRemovePasskey = (passkeyId: string, passkeyName: string | null) => {
-    Alert.alert(
-      'Remove passkey?',
-      `${passkeyName || 'This passkey'} will no longer sign in to Savey.`,
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Remove',
-          style: 'destructive',
-          onPress: () => {
-            void handleRemovePasskey(passkeyId);
-          },
-        },
-      ],
-    );
-  };
 
   return (
     <SafeAreaView style={styles.safeArea}>
@@ -173,15 +100,6 @@ export default function SettingsScreen() {
         </View>
 
         <AuthNotice message={error} />
-        <AuthNotice message={notice} tone="success" />
-        {userOwnsCredentials ? (
-          <AuthButton
-            label="Remove biometric sign-in"
-            loading={isRunning}
-            onPress={handleRemoveBiometrics}
-            variant="secondary"
-          />
-        ) : null}
         <AuthButton label="Sign out of Savey" loading={isRunning} onPress={handleSignOut} />
       </ScrollView>
     </SafeAreaView>
@@ -288,14 +206,6 @@ const styles = StyleSheet.create({
     borderRadius: 15,
     backgroundColor: 'rgba(234, 122, 83, 0.13)',
   },
-  passkeyIcon: {
-    width: 46,
-    height: 46,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderRadius: 15,
-    backgroundColor: 'rgba(234, 122, 83, 0.13)',
-  },
   securityCopy: {
     minWidth: 0,
     flex: 1,
@@ -337,43 +247,5 @@ const styles = StyleSheet.create({
   divider: {
     height: 1,
     backgroundColor: colors.border,
-  },
-  passkeyRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: spacing[3],
-    paddingTop: spacing[3],
-    borderTopWidth: 1,
-    borderTopColor: colors.border,
-  },
-  passkeyCopy: {
-    minWidth: 0,
-    flex: 1,
-  },
-  passkeyName: {
-    color: colors.primary,
-    fontFamily: 'sans-semibold',
-    fontSize: 13,
-  },
-  passkeyDate: {
-    marginTop: 2,
-    color: colors.mutedForeground,
-    fontFamily: 'sans-medium',
-    fontSize: 11,
-  },
-  removePasskey: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing[1],
-    paddingVertical: spacing[2],
-  },
-  removePasskeyText: {
-    color: colors.destructive,
-    fontFamily: 'sans-semibold',
-    fontSize: 12,
-  },
-  buttonPressed: {
-    opacity: 0.72,
   },
 });
