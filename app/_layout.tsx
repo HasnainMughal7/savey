@@ -8,6 +8,7 @@ import { SplashScreen, Stack } from 'expo-router';
 import { PostHogProvider } from 'posthog-react-native';
 import { useEffect, useRef } from 'react';
 import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
+import { usePostHogScreenTracking } from '@/hooks/usePostHogScreenTracking';
 
 import { posthog } from '@/lib/posthog';
 
@@ -47,6 +48,9 @@ function PostHogIdentitySync() {
 }
 
 function AppNavigator() {
+
+  usePostHogScreenTracking();
+
   const { isLoaded: isAuthLoaded, isSignedIn } = useAuth({
     treatPendingAsSignedOut: false,
   });
@@ -126,7 +130,14 @@ export default function RootLayout() {
   );
 
   return posthog ? (
-    <PostHogProvider client={posthog} autocapture={{ captureScreens: false }}>
+    <PostHogProvider
+      client={posthog}
+      autocapture={{
+        captureScreens: true,
+        captureTouches: true,
+        propsToCapture: ['testID'],
+      }}
+    >
       {app}
     </PostHogProvider>
   ) : (
