@@ -1,16 +1,50 @@
 import '@/global.css';
 
 import { colors } from '@/constants/theme';
-import { ClerkProvider, useAuth, useSession } from '@clerk/expo';
+import { ClerkProvider, useAuth, useSession, useUser } from '@clerk/expo';
 import { tokenCache } from '@clerk/expo/token-cache';
 import { useFonts } from 'expo-font';
 import { SplashScreen, Stack } from 'expo-router';
-import { useEffect } from 'react';
+import { PostHogProvider } from 'posthog-react-native';
+import { useEffect, useRef } from 'react';
 import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
+
+import { posthog } from '@/lib/posthog';
 
 void SplashScreen.preventAutoHideAsync();
 
 const publishableKey = process.env.EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY;
+
+function PostHogIdentitySync() {
+  const { isLoaded, user } = useUser();
+  const identifiedUserId = useRef<string | undefined>(undefined);
+
+  useEffect(() => {
+    if (!isLoaded) return;
+
+    if (user) {
+      if (identifiedUserId.current === user.id) return;
+
+      const email = user.primaryEmailAddress?.emailAddress;
+      const name = user.fullName;
+      const properties = {
+        ...(email ? { email } : {}),
+        ...(name ? { name } : {}),
+      };
+
+      posthog?.identify(user.id, properties);
+      identifiedUserId.current = user.id;
+      return;
+    }
+
+    if (identifiedUserId.current) {
+      posthog?.reset();
+      identifiedUserId.current = undefined;
+    }
+  }, [isLoaded, user]);
+
+  return null;
+}
 
 function AppNavigator() {
   const { isLoaded: isAuthLoaded, isSignedIn } = useAuth({
@@ -84,10 +118,19 @@ export default function RootLayout() {
   if (!fontsLoaded && !fontError) return null;
   if (!publishableKey) return <MissingClerkKey />;
 
-  return (
+  const app = (
     <ClerkProvider publishableKey={publishableKey} tokenCache={tokenCache}>
+      <PostHogIdentitySync />
       <AppNavigator />
     </ClerkProvider>
+  );
+
+  return posthog ? (
+    <PostHogProvider client={posthog} autocapture={{ captureScreens: false }}>
+      {app}
+    </PostHogProvider>
+  ) : (
+    app
   );
 }
 

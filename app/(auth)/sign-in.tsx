@@ -28,6 +28,7 @@ import {
   validateVerificationCode,
 } from '@/lib/auth';
 import { navigateAfterAuth } from '@/lib/authNavigation';
+import { posthog } from '@/lib/posthog';
 
 type MfaStrategy = 'email_code' | 'phone_code' | 'totp' | 'backup_code';
 
@@ -82,7 +83,11 @@ export default function SignInScreen() {
     },
     [],
   );
-  const finalize = useFinalizeAuth(signIn, navigateAfterAuth, handleFinalizeError);
+  const finalize = useFinalizeAuth(signIn, navigateAfterAuth, handleFinalizeError, () => {
+    posthog?.capture('sign_in_completed', {
+      authentication_method: mfaStrategy ? 'password_with_mfa' : 'password',
+    });
+  });
   const isFinalizing = finalize.isFinalizing;
   const busy = isRunning || fetchStatus === 'fetching' || isFinalizing;
 

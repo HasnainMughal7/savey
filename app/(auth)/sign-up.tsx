@@ -33,6 +33,7 @@ import {
   validateVerificationCode,
 } from '@/lib/auth';
 import { navigateAfterAuth } from '@/lib/authNavigation';
+import { posthog } from '@/lib/posthog';
 
 type SignUpStep = 'credentials' | 'email-code' | 'profile' | 'unsupported' | 'finalizing';
 
@@ -119,7 +120,9 @@ export default function SignUpScreen() {
     },
     [],
   );
-  const finalize = useFinalizeAuth(signUp, navigateAfterAuth, handleFinalizeError);
+  const finalize = useFinalizeAuth(signUp, navigateAfterAuth, handleFinalizeError, () => {
+    posthog?.capture('sign_up_completed');
+  });
   const isFinalizing = finalize.isFinalizing;
   const busy = isRunning || fetchStatus === 'fetching' || isFinalizing;
 

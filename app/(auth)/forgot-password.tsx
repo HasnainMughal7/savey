@@ -25,6 +25,7 @@ import {
   validateVerificationCode,
 } from '@/lib/auth';
 import { navigateAfterAuth } from '@/lib/authNavigation';
+import { posthog } from '@/lib/posthog';
 
 type RecoveryStep = 'email' | 'code' | 'new-password' | 'finalizing';
 
@@ -60,7 +61,9 @@ export default function ForgotPasswordScreen() {
     },
     [],
   );
-  const finalize = useFinalizeAuth(signIn, navigateAfterAuth, handleFinalizeError);
+  const finalize = useFinalizeAuth(signIn, navigateAfterAuth, handleFinalizeError, () => {
+    posthog?.capture('password_reset_completed');
+  });
   const isFinalizing = finalize.isFinalizing;
   const activeStep: RecoveryStep = finalize.isComplete ? 'finalizing' : step;
   const busy = isRunning || fetchStatus === 'fetching' || isFinalizing;
