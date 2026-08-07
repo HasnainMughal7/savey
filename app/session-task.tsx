@@ -8,6 +8,7 @@ import { AuthButton, AuthNotice } from '@/components/auth/AuthUI';
 import { colors, spacing } from '@/constants/theme';
 import { useAsyncAction } from '@/hooks/useAsyncAction';
 import { getErrorMessage } from '@/lib/auth';
+import { posthog } from '@/lib/posthog';
 
 export default function SessionTaskScreen() {
   const { session } = useSession();
@@ -17,6 +18,7 @@ export default function SessionTaskScreen() {
   const taskKey = session?.currentTask?.key;
 
   const handleSignOut = async () => {
+    posthog?.capture('user_signed_out', { source: 'session_task' });
     await signOut();
   };
 

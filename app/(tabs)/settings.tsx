@@ -2,6 +2,7 @@ import { AuthButton, AuthNotice } from '@/components/auth/AuthUI';
 import { colors, spacing } from '@/constants/theme';
 import { useAsyncAction } from '@/hooks/useAsyncAction';
 import { getErrorMessage } from '@/lib/auth';
+import { posthog } from '@/lib/posthog';
 import { useClerk, useUser } from '@clerk/expo';
 import { Ionicons } from '@expo/vector-icons';
 import { useState } from 'react';
@@ -39,6 +40,7 @@ export default function SettingsScreen() {
     run(async () => {
       setError(undefined);
       try {
+        posthog?.capture('user_signed_out', { source: 'settings' });
         await signOut();
       } catch (signOutError) {
         setError(getErrorMessage(signOutError, 'We could not sign you out. Please try again.'));
