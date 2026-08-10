@@ -38,7 +38,7 @@ declare global {
 
     interface UpcomingSubscription {
         id: string;
-        icon: ImageSourcePropType;
+        icon: ImageSourcePropType | string;
         name: string;
         price: number;
         currency?: string;

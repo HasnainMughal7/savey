@@ -5,18 +5,18 @@ import UpcomingSubscriptionCard from "@/components/UpcomingSubscriptionCard";
 import {
   HOME_BALANCE,
   HOME_USER,
-  UPCOMING_SUBSCRIPTIONS,
-} from "@/constants/data";
+} from '@/constants/data';
 import { icons } from "@/constants/icons";
 import images from "@/constants/images";
+import { api } from '@/convex/_generated/api';
 import "@/global.css";
 import { posthog } from "@/lib/posthog";
 import { formatCurrency } from "@/lib/utils";
-import { useSubscriptionsStore } from '@/store/subscriptionsStore';
 import { useUser } from "@clerk/expo";
+import { useQuery } from 'convex/react';
 import dayjs from "dayjs";
 import { styled } from "nativewind";
-import { useState } from "react";
+import { useMemo, useState } from 'react';
 import {
   FlatList,
   Image,
@@ -30,22 +30,64 @@ const SafeAreaView = styled(RNSafeAreaView);
 
 export default function App() {
 
-  const [expandedSubscriptionId, setExpandedSubscriptionId] = useState<string | null>(null);
+  const convexSubscriptions =
+    useQuery(api.subscriptions.getMine);
+
+  const [
+    expandedSubscriptionId,
+    setExpandedSubscriptionId,
+  ] = useState<string | null>(null);
 
   const [isCreateModalVisible, setIsCreateModalVisible] =
     useState(false);
 
-  const subscriptions = useSubscriptionsStore(
-    (state) => state.subscriptions,
-  );
-
-  const addSubscription = useSubscriptionsStore(
-    (state) => state.addSubscription,
-  );
+  const subscriptions =
+    convexSubscriptions ?? [];
 
   const { user } = useUser();
   const displayName = user?.firstName || user?.username || HOME_USER.name;
   const avatarSource = user?.hasImage ? { uri: user.imageUrl } : images.avatar;
+
+  const upcomingSubscriptions = useMemo(() => {
+    const today = dayjs().startOf('day');
+
+    return subscriptions
+      .filter((subscription) => {
+        if (subscription.status !== 'active') {
+          return false;
+        }
+
+        if (!subscription.renewalDate) {
+          return false;
+        }
+
+        return dayjs(subscription.renewalDate).isAfter(
+          today.subtract(1, 'day'),
+        );
+      })
+      .sort(
+        (a, b) =>
+          dayjs(a.renewalDate).valueOf() -
+          dayjs(b.renewalDate).valueOf(),
+      )
+      .slice(0, 5)
+      .map((subscription) => ({
+        id: subscription._id,
+        name: subscription.name,
+        price: subscription.price,
+        currency: subscription.currency,
+        icon: subscription.iconUrl
+          ? subscription.iconUrl
+          : icons.wallet,
+
+        daysLeft: Math.max(
+          0,
+          dayjs(subscription.renewalDate)
+            .startOf('day')
+            .diff(today, 'day'),
+        ),
+      }));
+  }, [subscriptions]);
 
   return (
     <SafeAreaView className="flex-1 bg-background p-5">
@@ -87,12 +129,18 @@ export default function App() {
             <View className="mb-5">
               <ListHeading title="Upcoming" />
               <FlatList
-                data={UPCOMING_SUBSCRIPTIONS}
-                renderItem={({ item }) => <UpcomingSubscriptionCard {...item} />}
+                data={upcomingSubscriptions}
+                renderItem={({ item }) => (
+                  <UpcomingSubscriptionCard {...item} />
+                )}
                 keyExtractor={(item) => item.id}
                 horizontal
                 showsHorizontalScrollIndicator={false}
-                ListEmptyComponent={<Text className="home-empty-state">No upcoming renewals yet.</Text>}
+                ListEmptyComponent={
+                  <Text className="home-empty-state">
+                    No upcoming renewals yet.
+                  </Text>
+                }
               />
 
             </View>
@@ -102,24 +150,57 @@ export default function App() {
           </>
         )}
         data={subscriptions}
-        keyExtractor={(item) => item.id}
+        keyExtractor={(item) => item._id}
         renderItem={({ item }) => (
           <SubscriptionCard
-            {...item}
-            expanded={expandedSubscriptionId === item.id}
+            name={item.name}
+            price={item.price}
+            currency={item.currency}
+            category={item.category}
+            billing={item.billing}
+            status={item.status}
+            startDate={item.startDate}
+            renewalDate={item.renewalDate}
+            color={item.color}
+            plan={item.plan}
+            paymentMethod={
+              item.paymentMethod
+            }
+            icon={
+              item.iconUrl
+                ? item.iconUrl
+                : icons.wallet
+            }
+            expanded={
+              expandedSubscriptionId ===
+              item._id
+            }
             onPress={() => {
-              const isExpanding = expandedSubscriptionId !== item.id;
+              const isExpanding =
+                expandedSubscriptionId !==
+                item._id;
+
               posthog?.capture(
-                isExpanding ? 'subscription_expanded' : 'subscription_collapsed',
+                isExpanding
+                  ? 'subscription_expanded'
+                  : 'subscription_collapsed',
                 {
-                  subscription_name: item.name,
-                  subscription_id: item.id,
-                  ...(item.category
-                    ? { subscription_category: item.category }
-                    : {}),
+                  subscription_id:
+                    item._id,
+
+                  subscription_name:
+                    item.name,
+
+                  subscription_category:
+                    item.category,
                 },
               );
-              setExpandedSubscriptionId(isExpanding ? item.id : null);
+
+              setExpandedSubscriptionId(
+                isExpanding
+                  ? item._id
+                  : null,
+              );
             }}
           />
         )}
@@ -135,7 +216,6 @@ export default function App() {
         onClose={() =>
           setIsCreateModalVisible(false)
         }
-        onCreate={addSubscription}
       />
 
     </SafeAreaView>

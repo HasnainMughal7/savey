@@ -1,8 +1,10 @@
 import SubscriptionCard from '@/components/SubscriptionCard';
+import { icons } from '@/constants/icons';
 import { colors } from '@/constants/theme';
+import { api } from '@/convex/_generated/api';
 import { posthog } from '@/lib/posthog';
-import { useSubscriptionsStore } from '@/store/subscriptionsStore';
 import { Ionicons } from '@expo/vector-icons';
+import { useQuery } from 'convex/react';
 import { styled } from 'nativewind';
 import { useMemo, useState } from 'react';
 import {
@@ -18,9 +20,11 @@ const SafeAreaView = styled(RNSafeAreaView);
 
 const Subscriptions = () => {
 
-    const subscriptions = useSubscriptionsStore(
-        (state) => state.subscriptions,
-    );
+    const convexSubscriptions =
+        useQuery(api.subscriptions.getMine);
+
+    const subscriptions =
+        convexSubscriptions ?? [];
 
     const [searchQuery, setSearchQuery] = useState('');
     const [expandedSubscriptionId, setExpandedSubscriptionId] =
@@ -50,7 +54,7 @@ const Subscriptions = () => {
         <SafeAreaView className="flex-1 bg-background">
             <FlatList
                 data={filteredSubscriptions}
-                keyExtractor={(item) => item.id}
+                keyExtractor={(item) => item._id}
                 keyboardDismissMode="on-drag"
                 keyboardShouldPersistTaps="handled"
                 showsVerticalScrollIndicator={false}
@@ -111,27 +115,56 @@ const Subscriptions = () => {
                 }
                 renderItem={({ item }) => (
                     <SubscriptionCard
-                        {...item}
-                        expanded={expandedSubscriptionId === item.id}
+                        name={item.name}
+                        price={item.price}
+                        currency={item.currency}
+                        category={item.category}
+                        billing={item.billing}
+                        status={item.status}
+                        startDate={item.startDate}
+                        renewalDate={item.renewalDate}
+                        color={item.color}
+                        plan={item.plan}
+                        paymentMethod={
+                            item.paymentMethod
+                        }
+                        icon={
+                            item.iconUrl
+                                ? item.iconUrl
+                                : icons.wallet
+                        }
+                        expanded={
+                            expandedSubscriptionId ===
+                            item._id
+                        }
                         onPress={() => {
-                            const isExpanding = expandedSubscriptionId !== item.id;
+                            const isExpanding =
+                                expandedSubscriptionId !==
+                                item._id;
 
                             posthog?.capture(
                                 isExpanding
                                     ? 'subscription_expanded'
                                     : 'subscription_collapsed',
                                 {
-                                    subscription_id: item.id,
-                                    subscription_name: item.name,
-                                    ...(item.category
-                                        ? { subscription_category: item.category }
-                                        : {}),
-                                    source: 'subscriptions_screen',
+                                    subscription_id:
+                                        item._id,
+
+                                    subscription_name:
+                                        item.name,
+
+                                    subscription_category:
+                                        item.category,
+
+                                    source:
+                                        'subscriptions_screen',
                                 },
                             );
 
                             setExpandedSubscriptionId(
-                                isExpanding ? item.id : null,
+                                isExpanding
+                                    ? item._id
+                                    : null,
                             );
                         }}
                     />
