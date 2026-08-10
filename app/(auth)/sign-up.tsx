@@ -49,7 +49,7 @@ type EditableSignUpField = 'email' | 'firstName' | 'lastName' | 'username' | 'le
 export default function SignUpScreen() {
   const { signUp, errors: clerkErrors, fetchStatus } = useSignUp();
   const { isRunning, run } = useAsyncAction();
-  const startSocialAuth = useSocialAuth();
+  const startSocialAuth = useSocialAuth('sign-up');
   const resend = useCooldown(30);
   const editedFieldsRef = useRef(new Set<EditableSignUpField>());
 
@@ -120,9 +120,9 @@ export default function SignUpScreen() {
     },
     [],
   );
-  const finalize = useFinalizeAuth(signUp, navigateAfterAuth, handleFinalizeError, () => {
-    posthog?.capture('sign_up_completed');
-  });
+  const finalize = useFinalizeAuth(signUp, navigateAfterAuth, handleFinalizeError, () =>
+    posthog?.capture('sign_up_completed', { method: 'password' })
+  );
   const isFinalizing = finalize.isFinalizing;
   const busy = isRunning || fetchStatus === 'fetching' || isFinalizing;
 
@@ -134,9 +134,15 @@ export default function SignUpScreen() {
   const handleSocialAuth = (strategy: SocialAuthStrategy) =>
     run(async () => {
       clearMessages();
+      const method = strategy.replace('oauth_', '');
+      posthog?.capture('sign_up_started', { method });
       try {
         await startSocialAuth(strategy);
       } catch (error) {
+        posthog?.capture('sign_up_failed', {
+          method,
+          reason: getErrorMessage(error, 'We could not continue with that provider.'),
+        });
         setFormError(getErrorMessage(error, 'We could not continue with that provider.'));
       }
     });
@@ -149,6 +155,7 @@ export default function SignUpScreen() {
   const handleCreateAccount = () =>
     run(async () => {
       clearMessages();
+      posthog?.capture('sign_up_started', { method: 'password' });
       const validation = validateSignUp(email, password, confirmPassword);
       setFieldErrors(validation);
       if (hasFieldErrors(validation)) return;
@@ -165,6 +172,10 @@ export default function SignUpScreen() {
         if (result.error) await refreshVerifiedAttempt();
         else resend.start();
       } catch (error) {
+        posthog?.capture('sign_up_failed', {
+          method: 'password',
+          reason: getErrorMessage(error, 'We could not create your account. Please try again.'),
+        });
         setFormError(getErrorMessage(error, 'We could not create your account. Please try again.'));
       }
     });
@@ -181,6 +192,10 @@ export default function SignUpScreen() {
         if (error && !isAlreadyVerifiedError(error)) throw error;
         if (error) await refreshVerifiedAttempt();
       } catch (error) {
+        posthog?.capture('sign_up_failed', {
+          method: 'password',
+          reason: getErrorMessage(error, 'That code could not be verified.'),
+        });
         setFormError(getErrorMessage(error, 'That code could not be verified.'));
       }
     });
@@ -197,6 +212,10 @@ export default function SignUpScreen() {
           setNotice('A fresh verification code is on its way.');
         }
       } catch (error) {
+        posthog?.capture('sign_up_failed', {
+          method: 'password',
+          reason: getErrorMessage(error, 'We could not resend the code.'),
+        });
         setFormError(getErrorMessage(error, 'We could not resend the code.'));
       }
     });
@@ -235,6 +254,10 @@ export default function SignUpScreen() {
         const { error } = await signUp.update(updates);
         if (error) throw error;
       } catch (error) {
+        posthog?.capture('sign_up_failed', {
+          method: 'password',
+          reason: getErrorMessage(error, 'We could not finish your profile.'),
+        });
         setFormError(getErrorMessage(error, 'We could not finish your profile.'));
       }
     });

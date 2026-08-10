@@ -3,15 +3,18 @@ import { router } from 'expo-router';
 import * as WebBrowser from 'expo-web-browser';
 import { useCallback } from 'react';
 
+import { posthog } from '@/lib/posthog';
+
 WebBrowser.maybeCompleteAuthSession();
 
 export type SocialAuthStrategy = 'oauth_google' | 'oauth_apple';
 
-export function useSocialAuth() {
+export function useSocialAuth(flow: 'sign-in' | 'sign-up') {
   const { startSSOFlow } = useSSO();
 
   return useCallback(
     async (strategy: SocialAuthStrategy) => {
+      const method = strategy.replace('oauth_', '');
       const result = await startSSOFlow({ strategy });
 
       if (result.authSessionResult && result.authSessionResult.type !== 'success') return;
@@ -21,6 +24,11 @@ export function useSocialAuth() {
         result.signIn?.existingSession ||
         result.signUp?.existingSession
       ) {
+        if (flow === 'sign-up') {
+          posthog?.capture('sign_up_completed', { method });
+        } else {
+          posthog?.capture('sign_in_succeeded', { method });
+        }
         // startSSOFlow finalizes/activates completed sessions. Protected route guards move the
         // user into the signed-in tree without dispatching across nested navigators.
         return;
@@ -38,6 +46,6 @@ export function useSocialAuth() {
 
       throw new Error('The social sign-in flow did not return an active authentication attempt.');
     },
-    [startSSOFlow],
+    [startSSOFlow, flow],
   );
 }
