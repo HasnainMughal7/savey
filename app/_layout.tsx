@@ -1,6 +1,7 @@
 import '@/global.css';
 
 import { colors } from '@/constants/theme';
+import { usePostHogScreenTracking } from '@/hooks/usePostHogScreenTracking';
 import { ClerkProvider, useAuth, useSession, useUser } from '@clerk/expo';
 import { tokenCache } from '@clerk/expo/token-cache';
 import { useFonts } from 'expo-font';
@@ -8,13 +9,29 @@ import { SplashScreen, Stack } from 'expo-router';
 import { PostHogProvider } from 'posthog-react-native';
 import { useEffect, useRef } from 'react';
 import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
-import { usePostHogScreenTracking } from '@/hooks/usePostHogScreenTracking';
 
 import { posthog } from '@/lib/posthog';
+
+import {
+  ConvexReactClient,
+} from 'convex/react';
+
+import {
+  ConvexProviderWithClerk,
+} from 'convex/react-clerk';
 
 void SplashScreen.preventAutoHideAsync();
 
 const publishableKey = process.env.EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY;
+
+const convexUrl =
+  process.env.EXPO_PUBLIC_CONVEX_URL;
+
+const convex = convexUrl
+  ? new ConvexReactClient(convexUrl, {
+    unsavedChangesWarning: false,
+  })
+  : null;
 
 function PostHogIdentitySync() {
   const { isLoaded, user } = useUser();
@@ -123,9 +140,24 @@ export default function RootLayout() {
   if (!publishableKey) return <MissingClerkKey />;
 
   const app = (
-    <ClerkProvider publishableKey={publishableKey} tokenCache={tokenCache}>
-      <PostHogIdentitySync />
-      <AppNavigator />
+    <ClerkProvider
+      publishableKey={publishableKey}
+      tokenCache={tokenCache}
+    >
+      {convex ? (
+        <ConvexProviderWithClerk
+          client={convex}
+          useAuth={useAuth}
+        >
+          <PostHogIdentitySync />
+          <AppNavigator />
+        </ConvexProviderWithClerk>
+      ) : (
+        <>
+          <PostHogIdentitySync />
+          <AppNavigator />
+        </>
+      )}
     </ClerkProvider>
   );
 

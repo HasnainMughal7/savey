@@ -18,6 +18,9 @@ import {
     View,
 } from 'react-native';
 
+import { api } from '@/convex/_generated/api';
+import { useMutation } from 'convex/react';
+
 const FREQUENCIES = [
     'Monthly',
     'Yearly',
@@ -51,14 +54,16 @@ const CATEGORY_COLORS: Record<Category, string> = {
 interface CreateSubscriptionModalProps {
     visible: boolean;
     onClose: () => void;
-    onCreate: (subscription: Subscription) => void;
 }
 
 const CreateSubscriptionModal = ({
     visible,
     onClose,
-    onCreate,
 }: CreateSubscriptionModalProps) => {
+
+    const createSubscription =
+        useMutation(api.subscriptions.create);
+
     const [name, setName] = useState('');
     const [price, setPrice] = useState('');
     const [frequency, setFrequency] =
@@ -138,41 +143,44 @@ const CreateSubscriptionModal = ({
             icon = icons.wallet;
         }
 
-        const subscription: Subscription = {
-            id: `subscription-${Date.now()}`,
+        await createSubscription({
             name: trimmedName,
             price: numericPrice,
             currency: 'USD',
+
             frequency,
             billing: frequency,
+
             category,
-            status: 'active',
-            startDate: startDate.toISOString(),
+
+            startDate:
+                startDate.toISOString(),
+
             renewalDate:
                 renewalDate.toISOString(),
-            icon,
-            color: CATEGORY_COLORS[category],
-        };
 
-        onCreate(subscription);
+            color:
+                CATEGORY_COLORS[category],
+
+            ...(typeof icon === 'string'
+                ? { iconUrl: icon }
+                : {}),
+        });
 
         posthog?.capture(
             'subscription_created',
             {
-                subscription_id:
-                    subscription.id,
                 subscription_name:
-                    subscription.name,
+                    trimmedName,
+
                 subscription_price:
-                    subscription.price,
+                    numericPrice,
+
                 subscription_frequency:
                     frequency,
+
                 subscription_category:
                     category,
-                source:
-                    'create_subscription_modal',
-                brand_logo_found:
-                    typeof icon === 'string',
             },
         );
 
