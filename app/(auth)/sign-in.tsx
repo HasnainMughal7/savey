@@ -48,7 +48,7 @@ const isSupportedMfaStrategy = (strategy: string): strategy is MfaStrategy =>
 export default function SignInScreen() {
   const { signIn, errors: clerkErrors, fetchStatus } = useSignIn();
   const { isRunning, run } = useAsyncAction();
-  const startSocialAuth = useSocialAuth();
+  const startSocialAuth = useSocialAuth('sign-in');
   const resend = useCooldown(30);
   const emailEditedRef = useRef(false);
 
@@ -84,8 +84,8 @@ export default function SignInScreen() {
     [],
   );
   const finalize = useFinalizeAuth(signIn, navigateAfterAuth, handleFinalizeError, () => {
-    posthog?.capture('sign_in_completed', {
-      authentication_method: mfaStrategy ? 'password_with_mfa' : 'password',
+    posthog?.capture('sign_in_succeeded', {
+      method: mfaStrategy ? 'password_with_mfa' : 'password',
     });
   });
   const isFinalizing = finalize.isFinalizing;
@@ -98,10 +98,16 @@ export default function SignInScreen() {
 
   const handleSocialAuth = (strategy: SocialAuthStrategy) =>
     run(async () => {
+      const method = strategy.replace('oauth_', '');
       clearMessages();
+      posthog?.capture('sign_in_started', { method });
       try {
         await startSocialAuth(strategy);
       } catch (error) {
+        posthog?.capture('sign_in_failed', {
+          method,
+          reason: getErrorMessage(error, 'We could not continue with that provider.'),
+        });
         setFormError(getErrorMessage(error, 'We could not continue with that provider.'));
       }
     });
@@ -109,6 +115,7 @@ export default function SignInScreen() {
   const handleSignIn = () =>
     run(async () => {
       clearMessages();
+      posthog?.capture('sign_in_started', { method: 'password' });
       const validation = validateSignIn(email, password);
       setFieldErrors(validation);
       if (hasFieldErrors(validation)) return;
@@ -120,6 +127,10 @@ export default function SignInScreen() {
         });
         if (error) throw error;
       } catch (error) {
+        posthog?.capture('sign_in_failed', {
+          method: 'password',
+          reason: getErrorMessage(error, 'We could not sign you in. Check your details.'),
+        });
         setFormError(getErrorMessage(error, 'We could not sign you in. Check your details.'));
       }
     });
@@ -174,6 +185,10 @@ export default function SignInScreen() {
 
         if (error && !isAlreadyVerifiedError(error)) throw error;
       } catch (error) {
+        posthog?.capture('sign_in_failed', {
+          method: 'password_with_mfa',
+          reason: getErrorMessage(error, 'That verification code was not accepted.'),
+        });
         setFormError(getErrorMessage(error, 'That verification code was not accepted.'));
       }
     });

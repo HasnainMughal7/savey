@@ -293,4 +293,28 @@
     .category-chip-text-active {
         @apply text-accent;
     }
+
+    .auth-label {
+        @apply text-sm font-sans-semibold text-primary;
+    }
+
+    .auth-input {
+        @apply min-h-14 rounded-2xl border border-border bg-card px-4 py-3.5 text-base font-sans-medium text-primary;
+    }
+
+    .auth-error {
+        @apply text-sm font-sans-medium text-destructive;
+    }
+
+    .auth-button {
+        @apply min-h-14 items-center justify-center rounded-2xl bg-accent px-5 py-4;
+    }
+
+    .auth-button-disabled {
+        @apply opacity-50;
+    }
+
+    .auth-button-text {
+        @apply text-base font-sans-bold text-primary;
+    }
 }
